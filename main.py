@@ -44,7 +44,7 @@ device = "cpu"
 
 
 class GPTBlock(nn.Module):
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim: int, max_len: int):
         # Attention
         super().__init__()
         self.Q = nn.Linear(embedding_dim, embedding_dim, bias=False)
@@ -57,13 +57,21 @@ class GPTBlock(nn.Module):
         self.f_act = nn.ReLU()
         self.f2 = nn.Linear(embedding_dim * 4, embedding_dim)
 
+        self.register_buffer("tril", torch.tril(torch.ones(max_len, max_len)))
+
     def forward(self, inputs):
+
+        B, T, C = inputs.shape
+
         q = self.Q(inputs)
         k = self.K(inputs)
         v = self.V(inputs)
 
         attention_weights = q @ k.transpose(-1, -2)  # shape: (B, T, T)
-        attention_scores = self.kv_softmax(attention_weights)
+        attention_weights_masked = attention_weights.masked_fill(
+            self.tril[:T, :T] == 0, -torch.inf
+        )
+        attention_scores = self.kv_softmax(attention_weights_masked)
         new_v = attention_scores @ v
 
         x = self.f2(self.f_act(self.f1(new_v)))
@@ -79,23 +87,21 @@ class GPT(nn.Module):
         self.emb = nn.Embedding(vocab_size, embedding_dim)
         self.pos = nn.Embedding(max_len, embedding_dim)
         self.blocks = nn.Sequential(
-            *[GPTBlock(embedding_dim) for _ in range(blocks_num)]
+            *[GPTBlock(embedding_dim, max_len) for _ in range(blocks_num)]
         )
-        self.proj = nn.Softmax()
+        self.proj = nn.Linear(embedding_dim, vocab_size)
+        self.proj_softmax = nn.Softmax(dim=-1)
 
     def forward(self, inputs):
-        """
-        inputs shape is (B, T)
-        T = max_len (for simplicty lets assume that all samples in batch are of the same length)
-        """
         embs = self.emb(inputs)
-        pos_embs = self.pos(inputs)
+        pos_embs = self.pos(torch.arange(3).repeat(inputs.shape[0], 1))
         blocks_output = self.blocks(embs + pos_embs)
         logits = self.proj(blocks_output)
-        return logits
+        output = self.proj_softmax(logits)
+        return output
 
 
-model = GPT(vocab_size=len(tokens), max_len=16)
+model = GPT(vocab_size=len(tokens), max_len=3)
 
 batch = get_dummy_batch()
 batch.to(device)
