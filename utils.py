@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data import Dataset
 
 
 def tokenize(text, token_to_id) -> list[int]:
@@ -33,3 +34,20 @@ def generate_text(
             context = generated
 
     return decode(context)
+
+
+class TextDataset(Dataset):
+    def __init__(self, text, context_window_size, token_to_id):
+        self.tokens = tokenize(text, token_to_id)
+
+        self.x = []
+        self.y = []
+        for i in range(len(self.tokens) - context_window_size):
+            self.x.append(self.tokens[i : i + context_window_size])
+            self.y.append(self.tokens[i + 1 : i + context_window_size + 1])
+
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, idx):
+        return torch.tensor(self.x[idx]), torch.tensor(self.y[idx])

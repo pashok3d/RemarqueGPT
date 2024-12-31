@@ -18,9 +18,9 @@ GPT model structure:
 import wandb
 import torch
 import math
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import tokenize
+from utils import TextDataset
 from model import GPT
 
 WINDOW_SIZE = 32
@@ -68,30 +68,13 @@ id_to_token = {i: token for i, token in enumerate(tokens)}
 token_to_id = {token: i for i, token in enumerate(tokens)}
 
 
-class TextDataset(Dataset):
-    def __init__(self, text, context_window_size):
-        self.tokens = tokenize(text, token_to_id)
-
-        self.x = []
-        self.y = []
-        for i in range(len(self.tokens) - context_window_size):
-            self.x.append(self.tokens[i : i + context_window_size])
-            self.y.append(self.tokens[i + 1 : i + context_window_size + 1])
-
-    def __len__(self):
-        return len(self.x)
-
-    def __getitem__(self, idx):
-        return torch.tensor(self.x[idx]), torch.tensor(self.y[idx])
-
-
-train_ds = TextDataset(train_text, WINDOW_SIZE)
+train_ds = TextDataset(train_text, WINDOW_SIZE, token_to_id)
 train_dataloader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-dev_ds = TextDataset(dev_text, WINDOW_SIZE)
+dev_ds = TextDataset(dev_text, WINDOW_SIZE, token_to_id)
 dev_dataloader = DataLoader(dev_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-test_ds = TextDataset(test_text, WINDOW_SIZE)
+test_ds = TextDataset(test_text, WINDOW_SIZE, token_to_id)
 test_dataloader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
 
 model = GPT(vocab_size=len(tokens), max_len=WINDOW_SIZE)
