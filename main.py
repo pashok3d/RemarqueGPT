@@ -22,6 +22,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import TextDataset
 from model import GPT
+from torch.utils.data import ConcatDataset
 
 WINDOW_SIZE = 32
 BATCH_SIZE = 16
@@ -39,45 +40,57 @@ config = {
 
 run = wandb.init(project="remark-gpt", config=config)
 
-# Load dataset
+# Prepare tokenizer
+dataset_lines = []
 with open("dataset/The_Dream_Room_1920_AST_978-5-17-071518-3.txt", "r") as f:
-    lines = f.readlines()
-
-text = "\n".join(lines)
+    dataset_lines.extend(f.readlines())
+with open("dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5.txt", "r") as f:
+    dataset_lines.extend(f.readlines())
+text = "\n".join(dataset_lines)
 tokens = sorted(set(text))
-
-# Load train dataset
-with open("dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-train.txt", "r") as f:
-    lines = f.readlines()
-
-train_text = "\n".join(lines)
-
-# Load dev dataset
-with open("dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-dev.txt", "r") as f:
-    lines = f.readlines()
-
-dev_text = "\n".join(lines)
-
-# Load test dataset
-with open("dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-test.txt", "r") as f:
-    lines = f.readlines()
-
-test_text = "\n".join(lines)
-
 id_to_token = {i: token for i, token in enumerate(tokens)}
 token_to_id = {token: i for i, token in enumerate(tokens)}
 
-
-train_ds = TextDataset(train_text, WINDOW_SIZE, token_to_id)
+train_ds1 = TextDataset(
+    "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-train.txt",
+    WINDOW_SIZE,
+    token_to_id,
+)
+train_ds2 = TextDataset(
+    "dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5.txt",
+    WINDOW_SIZE,
+    token_to_id,
+)
+train_ds = ConcatDataset([train_ds1, train_ds2])
 train_dataloader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-dev_ds = TextDataset(dev_text, WINDOW_SIZE, token_to_id)
+dev_ds1 = TextDataset(
+    "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-dev.txt",
+    WINDOW_SIZE,
+    token_to_id,
+)
+dev_ds2 = TextDataset(
+    "dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5-dev.txt",
+    WINDOW_SIZE,
+    token_to_id,
+)
+dev_ds = ConcatDataset([dev_ds1, dev_ds2])
 dev_dataloader = DataLoader(dev_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-test_ds = TextDataset(test_text, WINDOW_SIZE, token_to_id)
+test_ds1 = TextDataset(
+    "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-test.txt",
+    WINDOW_SIZE,
+    token_to_id,
+)
+test_ds2 = TextDataset(
+    "dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5-test.txt",
+    WINDOW_SIZE,
+    token_to_id,
+)
+test_ds = ConcatDataset([test_ds1, test_ds2])
 test_dataloader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-model = GPT(vocab_size=len(tokens), max_len=WINDOW_SIZE)
+model = GPT(vocab_size=len(tokens), max_len=WINDOW_SIZE, blocks_num=2)
 model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR)

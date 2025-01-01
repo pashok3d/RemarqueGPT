@@ -37,7 +37,13 @@ def generate_text(
 
 
 class TextDataset(Dataset):
-    def __init__(self, text, context_window_size, token_to_id):
+    def __init__(self, path, context_window_size, token_to_id):
+        # Load dataset
+        with open(path, "r") as f:
+            lines = f.readlines()
+
+        text = "\n".join(lines)
+
         self.tokens = tokenize(text, token_to_id)
 
         self.x = []
