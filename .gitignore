@@ -1,3 +1,4 @@
 wandb
 launch.json
 *.txt
+*.pyc
