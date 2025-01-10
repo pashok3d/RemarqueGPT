@@ -15,15 +15,15 @@ Here is the list of the books used to train the model:
 ### Dataset Preprocessing  
 For simplicity sake, the content of the books was preprocessed by removing all non-cyrillic letters. Phrases in foreign languages were translated. Each book was split into train/dev/test parts with the following proportions: 80/10/10.
 
-# Implementation details
+## Implementation details
 
 The implementation follows the original GPT decoder architecture.
 
-## Single Head Attention Graph
+### Single Head Attention Graph
 
 Visualization of attention calculation for a single head:
 ![Single Head Attention Graph](images/single_head_attention_graph.png "Single Head Attention Graph")
 
-# Suplementary materials
+## Suplementary materials
 The Illustrated Transformer by Jay Alammar: http://jalammar.github.io/illustrated-transformer/    
 Let's build GPT: from scratch, in code, spelled out. by Andrej Karpathy: https://youtu.be/kCc8FmEb1nY
