@@ -15,17 +15,17 @@ GPT model structure:
 4. projection
 """
 
-import wandb
+import tiktoken
 import torch
-import math
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import TextDataset
+from utils import get_datasets, generate_text
+from tokenizer import Tokenizer
 from model import GPT
 from torch.utils.data import ConcatDataset
 
-WINDOW_SIZE = 32
-BATCH_SIZE = 16
+WINDOW_SIZE = 5
+BATCH_SIZE = 2
 EPOCHS = 10
 LR = 0.005
 
@@ -38,64 +38,45 @@ config = {
     "window_size": WINDOW_SIZE,
 }
 
-run = wandb.init(project="remark-gpt", config=config)
-
 # Prepare tokenizer
+enc = tiktoken.get_encoding("o200k_base")
+tokenizer = Tokenizer(enc)
+
 dataset_lines = []
 with open("dataset/The_Dream_Room_1920_AST_978-5-17-071518-3.txt", "r") as f:
     dataset_lines.extend(f.readlines())
-with open("dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5.txt", "r") as f:
-    dataset_lines.extend(f.readlines())
 text = "\n".join(dataset_lines)
-tokens = sorted(set(text))
-id_to_token = {i: token for i, token in enumerate(tokens)}
-token_to_id = {token: i for i, token in enumerate(tokens)}
 
-train_ds1 = TextDataset(
-    "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-train.txt",
+tokenizer.fit(text)
+
+tokenizer.dump("tokenizer.txt")
+
+# Prepare datasets
+ds_list = get_datasets(
+    [
+        "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-train.txt",
+    ],
     WINDOW_SIZE,
-    token_to_id,
+    tokenizer,
 )
-train_ds2 = TextDataset(
-    "dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5.txt",
-    WINDOW_SIZE,
-    token_to_id,
-)
-train_ds = ConcatDataset([train_ds1, train_ds2])
+train_ds = ConcatDataset(ds_list)
 train_dataloader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-dev_ds1 = TextDataset(
-    "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-dev.txt",
+dev_ds_list = get_datasets(
+    [
+        "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-dev.txt",
+    ],
     WINDOW_SIZE,
-    token_to_id,
+    tokenizer,
 )
-dev_ds2 = TextDataset(
-    "dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5-dev.txt",
-    WINDOW_SIZE,
-    token_to_id,
-)
-dev_ds = ConcatDataset([dev_ds1, dev_ds2])
+dev_ds = ConcatDataset(dev_ds_list)
 dev_dataloader = DataLoader(dev_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-test_ds1 = TextDataset(
-    "dataset/The_Dream_Room_1920_AST_978-5-17-071518-3-test.txt",
-    WINDOW_SIZE,
-    token_to_id,
+model = GPT(
+    vocab_size=tokenizer.vocab_size, max_len=WINDOW_SIZE, blocks_num=2, embedding_dim=4
 )
-test_ds2 = TextDataset(
-    "dataset/Station_at_the_Horizon_1928_AST_978-5-17-133322-5-test.txt",
-    WINDOW_SIZE,
-    token_to_id,
-)
-test_ds = ConcatDataset([test_ds1, test_ds2])
-test_dataloader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
-
-model = GPT(vocab_size=len(tokens), max_len=WINDOW_SIZE, blocks_num=2, embedding_dim=4)
 model.to(device)
-
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
-
-wandb.watch(model, log_freq=5000)
 
 model.train()
 epoch_loss = 0
@@ -116,8 +97,6 @@ for epoch in range(EPOCHS):
     val_epoch_loss = 0
     steps_n = 0
     val_steps_n = 0
-    test_epoch_loss = 0
-    test_steps_n = 0
 
     for batch in tqdm(train_dataloader):
         input, labels = batch[0].to(device), batch[1].to(device)
@@ -127,7 +106,6 @@ for epoch in range(EPOCHS):
         optimizer.zero_grad()
         epoch_loss += loss.item()
         steps_n += 1
-        run.log({"train_loss": loss.item()})
 
     avg_loss = epoch_loss / steps_n
     print(f"epoch {epoch} train loss: {avg_loss:.3f}")
@@ -140,22 +118,7 @@ for epoch in range(EPOCHS):
             val_epoch_loss += loss.item()
             val_steps_n += 1
 
-        for batch in tqdm(test_dataloader):
-            input, labels = batch[0].to(device), batch[1].to(device)
-            output, loss = model(input, labels)
-            test_epoch_loss += loss.item()
-            test_steps_n += 1
-
     avg_val_loss = val_epoch_loss / val_steps_n
-    avg_test_loss = test_epoch_loss / test_steps_n
     print(f"epoch {epoch} val loss: {avg_val_loss:.3f}")
-    print(f"epoch {epoch} test loss: {avg_test_loss:.3f}")
-    run.log({"epoch_train_loss": avg_loss, "epoch_val_loss": avg_val_loss})
 
 torch.save(model.state_dict(), "model/gpt.pt")
-
-artifact = wandb.Artifact("model", type="model")
-artifact.add_file("model/gpt.pt")
-run.log_artifact(artifact)
-
-wandb.finish()

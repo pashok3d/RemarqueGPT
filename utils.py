@@ -1,17 +1,11 @@
 import torch
 from torch.utils.data import Dataset
-
-
-def tokenize(text, token_to_id) -> list[int]:
-    return [token_to_id[ch] for ch in text]
-
-
-def decode(token_ids: list[int], id_to_token) -> str:
-    return "".join([id_to_token[token_id] for token_id in token_ids])
+from tokenizer import Tokenizer
 
 
 def generate_text(
     model,
+    tokenizer: Tokenizer,
     prompt: str,
     device: str,
     window_size: int,
@@ -20,7 +14,7 @@ def generate_text(
 ) -> str:
     """Generate text using the trained GPT model."""
     model.eval()
-    context = tokenize(prompt)
+    context = tokenizer.encode(prompt)
     generated = list(context)
 
     with torch.no_grad():
@@ -33,18 +27,18 @@ def generate_text(
             generated.append(next_token)
             context = generated
 
-    return decode(context)
+    return tokenizer.decode(generated)
 
 
 class TextDataset(Dataset):
-    def __init__(self, path, context_window_size, token_to_id):
+    def __init__(self, path, context_window_size, tokenizer: Tokenizer):
         # Load dataset
         with open(path, "r") as f:
             lines = f.readlines()
 
         text = "\n".join(lines)
 
-        self.tokens = tokenize(text, token_to_id)
+        self.tokens = tokenizer.encode(text)
 
         self.x = []
         self.y = []
@@ -57,3 +51,13 @@ class TextDataset(Dataset):
 
     def __getitem__(self, idx):
         return torch.tensor(self.x[idx]), torch.tensor(self.y[idx])
+
+
+def get_datasets(paths, context_window_size, tokenizer: Tokenizer):
+    datasets = []
+
+    for path in paths:
+        dataset = TextDataset(path, context_window_size, tokenizer)
+        datasets.append(dataset)
+
+    return datasets
