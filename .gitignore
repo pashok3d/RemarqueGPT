@@ -2,3 +2,4 @@ wandb
 launch.json
 *.txt
 *.pyc
+.venv
