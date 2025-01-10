@@ -18,3 +18,8 @@
 |                             | Тени в раю                        |                           | 1971 |                                                                              |
 |                             | Гэм                               |                           | 1998 |                                                                              |
 |                             | Земля обетованная                 |                           | 1998 |                                                                              |
+
+# Implementation details
+
+## Single Head Attention Graph
+![Single Head Attention Graph](images/single_head_attention_graph.png "Single Head Attention Graph")

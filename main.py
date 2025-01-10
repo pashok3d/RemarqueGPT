@@ -90,7 +90,7 @@ test_ds2 = TextDataset(
 test_ds = ConcatDataset([test_ds1, test_ds2])
 test_dataloader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-model = GPT(vocab_size=len(tokens), max_len=WINDOW_SIZE, blocks_num=2)
+model = GPT(vocab_size=len(tokens), max_len=WINDOW_SIZE, blocks_num=2, embedding_dim=4)
 model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
