@@ -14,7 +14,7 @@ def generate_text(
 ) -> str:
     """Generate text using the trained GPT model."""
     model.eval()
-    context = tokenizer.encode(prompt)
+    context = tokenizer.encode(prompt).ids
     generated = list(context)
 
     with torch.no_grad():
@@ -38,7 +38,7 @@ class TextDataset(Dataset):
 
         text = "\n".join(lines)
 
-        self.tokens = tokenizer.encode(text)
+        self.tokens = tokenizer.encode(text).ids
 
         self.x = []
         self.y = []
