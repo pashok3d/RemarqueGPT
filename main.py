@@ -190,13 +190,14 @@ for epoch in range(EPOCHS):
                     metric_name = f"avg_val_loss_{ds_name}"
                     if LOG_WANDB:
                         run.log({metric_name: avg_val_loss}, commit=False)
+            torch.save(model.state_dict(), "gpt.pt")
             model.train()
 
-torch.save(model.state_dict(), "model/gpt.pt")
+torch.save(model.state_dict(), "gpt.pt")
 
 if LOG_WANDB:
     artifact = wandb.Artifact("model", type="model")
-    artifact.add_file("model/gpt.pt")
+    artifact.add_file("gpt.pt")
     run.log_artifact(artifact)
     run.finish()
 
