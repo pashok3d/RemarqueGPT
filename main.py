@@ -113,17 +113,22 @@ for i, dev_ds in enumerate(dev_ds_list):
     )
 
 model = GPT(
-    vocab_size=tokenizer.vocab_size, max_len=WINDOW_SIZE, blocks_num=2, embedding_dim=4
+    vocab_size=tokenizer.get_vocab_size(),
+    max_len=WINDOW_SIZE,
+    embedding_dim=EMBEDDING_DIM,
+    blocks_num=BLOCKS_NUM,
+    n_heads=HEADS_NUM,
+    dropout=DROPOUT,
 )
 model.to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
 # Scheduler with warmup and linear decay
-TOTAL_STEPS = EPOCHS * len(train_dataloader)
-WARMUP_STEPS = int(0.05 * TOTAL_STEPS)  # 10% warmup
+total_steps = EPOCHS * len(train_dataloader)
+warmup_steps = int(0.05 * total_steps)
 
 scheduler = get_linear_schedule_with_warmup(
-    optimizer, num_warmup_steps=WARMUP_STEPS, num_training_steps=TOTAL_STEPS
+    optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
 )
 
 if LOG_WANDB:
@@ -134,7 +139,7 @@ model.train()
 epoch_loss = 0
 steps_n = 0
 with torch.no_grad():
-    for batch in tqdm(train_dataloader):
+    for batch in tqdm(names_with_dev_dataloaders[0][1]):
         input, labels = batch[0].to(device), batch[1].to(device)
         output, loss = model(input, labels)
         epoch_loss += loss.item()

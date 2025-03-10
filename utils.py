@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import Dataset
-from tokenizer import Tokenizer
+from tokenizers import Tokenizer
 
 
 def generate_text(
