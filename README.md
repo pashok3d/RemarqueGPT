@@ -17,7 +17,7 @@ For simplicity sake, the content of the books was preprocessed by removing all n
 
 ## Implementation details
 
-The implementation follows the original GPT decoder architecture.
+The implementation aims to follow the original GPT decoder architecture, with minor modifications such as pre-norm, SiLU instead of ReLU, etc.
 
 ### Single Head Attention Graph
 
