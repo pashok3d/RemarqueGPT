@@ -22,17 +22,17 @@ from tokenizers import (
 from torch.nn.utils import clip_grad_norm_
 
 LOG_WANDB = False
-WINDOW_SIZE = 256
-BATCH_SIZE = 256
+WINDOW_SIZE = 128
+BATCH_SIZE = 512
 EPOCHS = 5
 LR = 1e-4
 EMBEDDING_DIM = 128
 BLOCKS_NUM = 4
 HEADS_NUM = 4
 DROPOUT = 0.2
-VOCAB_SIZE = 2024
+VOCAB_SIZE = 1024
 MAX_GRAD_NORM = 1.0
-VALIDATION_INTERVAL = 1000
+VALIDATION_INTERVAL = 3000
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -67,6 +67,14 @@ dataset_paths = [
     "dataset/Tree_Comrades_1936_978-5-17-004252-4.txt",
     "dataset/Tree_Comrades_1936_978-5-17-056963-2.txt",
     "dataset/Tree_Comrades_1936_978-5-17-108545-2.txt",
+    "dataset/A_Time_to_Love_and_a_Time_to_Die.txt",
+    "dataset/Arch_of_Triumph_1945.txt",
+    "dataset/Flotsam_1939.txt",
+    "dataset/Heaven_Has_No_Favorites.txt",
+    "dataset/Shadows_in_Paradise.txt",
+    "dataset/Spark_of_Life_1952.txt",
+    "dataset/The_Black_Obelisk.txt",
+    "dataset/The_Promised_Land_Vagrius_978-5-9697-0386-5.txt",
 ]
 
 for path in [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths]:
