@@ -2,37 +2,40 @@
 Building GPT from scratch and training it on all books of Erich Maria Remarque
 """
 
-import torch
-from torch.utils.data import DataLoader
-from tqdm import tqdm
+import collections
 import math
-from utils import get_datasets, generate_text
-from model import GPT
-from torch.utils.data import ConcatDataset
-from transformers import get_linear_schedule_with_warmup
+
+import torch
 from tokenizers import (
     Tokenizer,
     decoders,
     models,
-    pre_tokenizers,
-    trainers,
-    processors,
     normalizers,
+    pre_tokenizers,
+    processors,
+    trainers,
 )
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import ConcatDataset, DataLoader
+from tqdm import tqdm
+from transformers import get_inverse_sqrt_schedule
 
-LOG_WANDB = True
+from model import GPT
+from utils import generate_text, get_datasets
+
+LOG_WANDB = False
 WINDOW_SIZE = 128
-BATCH_SIZE = 512
+BATCH_SIZE = 64
 EPOCHS = 5
 LR = 1e-4
 EMBEDDING_DIM = 128
-BLOCKS_NUM = 4
+BLOCKS_NUM = 2
 HEADS_NUM = 4
 DROPOUT = 0.2
 VOCAB_SIZE = 1024
 MAX_GRAD_NORM = 1.0
-VALIDATION_INTERVAL = 3000
+WARMUP_FRACTION = 0.1
+VALIDATION_INTERVAL = 250
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -47,6 +50,7 @@ config = {
     "dropout": DROPOUT,
     "vocab_size": VOCAB_SIZE,
     "max_grad_norm": MAX_GRAD_NORM,
+    "warmup_fraction": WARMUP_FRACTION,
     "device": device,
 }
 
@@ -82,6 +86,9 @@ dataset_paths = [
 for path in [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths]:
     with open(path, "r") as f:
         dataset_lines.extend(f.readlines())
+
+text = "\n".join(dataset_lines)
+c = collections.Counter(text)
 
 tokenizer = Tokenizer(models.BPE())
 trainer = trainers.BpeTrainer(vocab_size=VOCAB_SIZE)
@@ -132,15 +139,14 @@ model = GPT(
     dropout=DROPOUT,
 )
 model.to(device)
+# model = torch.compile(model)
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
 # Scheduler with warmup and linear decay
 total_steps = EPOCHS * len(train_dataloader)
-warmup_steps = int(0.05 * total_steps)
+warmup_steps = int(WARMUP_FRACTION * total_steps)
 
-scheduler = get_linear_schedule_with_warmup(
-    optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
-)
+scheduler = get_inverse_sqrt_schedule(optimizer, num_warmup_steps=warmup_steps)
 
 model.train()
 
