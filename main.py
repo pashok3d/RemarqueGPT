@@ -27,7 +27,7 @@ LOG_WANDB = False
 WINDOW_SIZE = 128
 BATCH_SIZE = 64
 EPOCHS = 5
-LR = 1e-4
+LR = 3e-4
 EMBEDDING_DIM = 128
 BLOCKS_NUM = 2
 HEADS_NUM = 4
@@ -140,7 +140,9 @@ model = GPT(
 )
 model.to(device)
 # model = torch.compile(model)
-optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+optimizer = torch.optim.AdamW(
+    model.parameters(), lr=LR, betas=(0.9, 0.95), weight_decay=0.1, fused=True
+)
 
 # Scheduler with warmup and linear decay
 total_steps = EPOCHS * len(train_dataloader)
