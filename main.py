@@ -75,6 +75,8 @@ dataset_paths = [
     "dataset/Spark_of_Life_1952.txt",
     "dataset/The_Black_Obelisk.txt",
     "dataset/The_Promised_Land_Vagrius_978-5-9697-0386-5.txt",
+    "dataset/The_Night_in_Lisbon.txt",
+    "dataset/Gam.txt",
 ]
 
 for path in [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths]:
@@ -139,9 +141,6 @@ warmup_steps = int(0.05 * total_steps)
 scheduler = get_linear_schedule_with_warmup(
     optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
 )
-
-if LOG_WANDB:
-    wandb.watch(model, log_freq=2500, log="all")
 
 model.train()
 
