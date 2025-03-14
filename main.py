@@ -21,7 +21,7 @@ from tokenizers import (
 )
 from torch.nn.utils import clip_grad_norm_
 
-LOG_WANDB = False
+LOG_WANDB = True
 WINDOW_SIZE = 128
 BATCH_SIZE = 512
 EPOCHS = 5
@@ -81,8 +81,6 @@ for path in [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths]
     with open(path, "r") as f:
         dataset_lines.extend(f.readlines())
 
-alphabet = list(set("".join(dataset_lines)))
-
 tokenizer = Tokenizer(models.BPE())
 trainer = trainers.BpeTrainer(vocab_size=VOCAB_SIZE)
 tokenizer.normalizer = normalizers.Lowercase()
@@ -90,6 +88,9 @@ tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
 tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)
 tokenizer.decoder = decoders.ByteLevel()
 tokenizer.train_from_iterator(dataset_lines, trainer=trainer)
+
+# Save tokenizer
+tokenizer.save("tokenizer")
 
 # Prepare dataloaders
 ds_list = get_datasets(
@@ -156,10 +157,9 @@ with torch.no_grad():
 expected_init_loss = -math.log(1 / tokenizer.get_vocab_size())
 print(f"initial train loss: {avg_loss:.3f}, with expected of {expected_init_loss:.3f}")
 
+total_steps = 0
 for epoch in range(EPOCHS):
     model.train()
-    epoch_loss = 0
-    total_steps = 0
 
     for batch in tqdm(train_dataloader):
         input, labels = batch[0].to(device), batch[1].to(device)
@@ -169,8 +169,7 @@ for epoch in range(EPOCHS):
         optimizer.step()
         scheduler.step()
         optimizer.zero_grad()
-        epoch_loss += loss.item()
-        total_steps += 1
+
         if LOG_WANDB:
             run.log({"train_loss": loss.item(), "lr": scheduler.get_last_lr()[0]})
 
@@ -190,8 +189,23 @@ for epoch in range(EPOCHS):
                     metric_name = f"avg_val_loss_{ds_name}"
                     if LOG_WANDB:
                         run.log({metric_name: avg_val_loss}, commit=False)
+
+                prompt = "привет, любовь моя"
+                generated_text = generate_text(
+                    model,
+                    tokenizer,
+                    prompt,
+                    device,
+                    WINDOW_SIZE,
+                    max_tokens=250,
+                    temperature=0.7,
+                )
+                print(f"generated text: {generated_text}")
+
             torch.save(model.state_dict(), "gpt.pt")
             model.train()
+
+        total_steps += 1
 
 torch.save(model.state_dict(), "gpt.pt")
 
@@ -200,9 +214,3 @@ if LOG_WANDB:
     artifact.add_file("gpt.pt")
     run.log_artifact(artifact)
     run.finish()
-
-model.eval()
-prompt = "Привет, любовь моя"
-generated_text = generate_text(
-    model, tokenizer, prompt, device, WINDOW_SIZE, max_tokens=250, temperature=0.7
-)
