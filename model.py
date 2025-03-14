@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-import math
+import torch.nn.functional as F
 
 
 class MultiHeadAttention(nn.Module):
@@ -29,16 +29,8 @@ class MultiHeadAttention(nn.Module):
         k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
         v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
 
-        attention_weights = (q @ k.transpose(-1, -2)) / math.sqrt(
-            q.shape[-1]
-        )  # shape: (B, T, T)
-        attention_weights = self.attn_dropout(attention_weights)
-        attention_weights_masked = attention_weights.masked_fill(
-            self.tril[:T, :T] == 0, -torch.inf
-        )
-        attention_scores = self.kv_softmax(attention_weights_masked)
-
-        new_v = attention_scores @ v  # shape (B, n_heads, T, C // n_heads)
+        # Use flash attention implementation
+        new_v = F.scaled_dot_product_attention(q, k, v, is_causal=True)
 
         return new_v.transpose(1, 2).contiguous().view(B, T, C)
 
