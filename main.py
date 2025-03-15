@@ -23,19 +23,19 @@ from transformers import get_inverse_sqrt_schedule
 from model import GPT
 from utils import generate_text, get_datasets
 
-LOG_WANDB = False
+LOG_WANDB = True
 WINDOW_SIZE = 128
-BATCH_SIZE = 64
+BATCH_SIZE = 512
 EPOCHS = 5
 LR = 3e-4
 EMBEDDING_DIM = 128
-BLOCKS_NUM = 2
+BLOCKS_NUM = 3
 HEADS_NUM = 4
 DROPOUT = 0.2
 VOCAB_SIZE = 1024
 MAX_GRAD_NORM = 1.0
 WARMUP_FRACTION = 0.1
-VALIDATION_INTERVAL = 250
+VALIDATION_INTERVAL = 1000
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -139,7 +139,7 @@ model = GPT(
     dropout=DROPOUT,
 )
 model.to(device)
-# model = torch.compile(model)
+model = torch.compile(model)
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=LR, betas=(0.9, 0.95), weight_decay=0.1, fused=True
 )
@@ -157,7 +157,8 @@ steps_n = 0
 with torch.no_grad():
     for batch in tqdm(names_with_dev_dataloaders[0][1]):
         input, labels = batch[0].to(device), batch[1].to(device)
-        output, loss = model(input, labels)
+        with torch.amp.autocast(device_type=device, dtype=torch.bfloat16):
+            output, loss = model(input, labels)
         epoch_loss += loss.item()
         steps_n += 1
     avg_loss = epoch_loss / steps_n
@@ -167,10 +168,10 @@ print(f"initial train loss: {avg_loss:.3f}, with expected of {expected_init_loss
 total_steps = 0
 for epoch in range(EPOCHS):
     model.train()
-
     for batch in tqdm(train_dataloader):
         input, labels = batch[0].to(device), batch[1].to(device)
-        output, loss = model(input, labels)
+        with torch.amp.autocast(device_type=device, dtype=torch.bfloat16):
+            output, loss = model(input, labels)
         loss.backward()
         clip_grad_norm_(model.parameters(), max_norm=MAX_GRAD_NORM)
         optimizer.step()
@@ -197,15 +198,9 @@ for epoch in range(EPOCHS):
                     if LOG_WANDB:
                         run.log({metric_name: avg_val_loss}, commit=False)
 
-                prompt = "привет, любовь моя"
+                prompt = "она смотрела на него сквозь сигаретный дым, и в её глазах"
                 generated_text = generate_text(
-                    model,
-                    tokenizer,
-                    prompt,
-                    device,
-                    WINDOW_SIZE,
-                    max_tokens=250,
-                    temperature=0.7,
+                    model, tokenizer, prompt, device, WINDOW_SIZE, max_tokens=250
                 )
                 print(f"generated text: {generated_text}")
 
@@ -219,5 +214,6 @@ torch.save(model.state_dict(), "gpt.pt")
 if LOG_WANDB:
     artifact = wandb.Artifact("model", type="model")
     artifact.add_file("gpt.pt")
+    artifact.add_file("tokenizer")
     run.log_artifact(artifact)
     run.finish()
