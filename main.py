@@ -6,20 +6,12 @@ import collections
 import math
 
 import torch
-from tokenizers import (
-    Tokenizer,
-    decoders,
-    models,
-    normalizers,
-    pre_tokenizers,
-    processors,
-    trainers,
-)
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
 from transformers import get_inverse_sqrt_schedule
 
+from char_tokenizer import CharTokenizer
 from model import GPT
 from utils import generate_text, get_datasets
 
@@ -32,7 +24,7 @@ EMBEDDING_DIM = 128
 BLOCKS_NUM = 3
 HEADS_NUM = 4
 DROPOUT = 0.2
-VOCAB_SIZE = 1024
+# VOCAB_SIZE = 1024
 MAX_GRAD_NORM = 1.0
 WARMUP_FRACTION = 0.1
 VALIDATION_INTERVAL = 1000
@@ -48,7 +40,7 @@ config = {
     "blocks_num": BLOCKS_NUM,
     "heads_num": HEADS_NUM,
     "dropout": DROPOUT,
-    "vocab_size": VOCAB_SIZE,
+    # "vocab_size": VOCAB_SIZE,
     "max_grad_norm": MAX_GRAD_NORM,
     "warmup_fraction": WARMUP_FRACTION,
     "device": device,
@@ -57,7 +49,7 @@ config = {
 if LOG_WANDB:
     import wandb
 
-    run = wandb.init(project="remark-gpt", config=config)
+    run = wandb.init(project="remark-gpt-char", config=config)
 
 # Prepare tokenizer
 dataset_lines = []
@@ -88,15 +80,18 @@ for path in [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths]
         dataset_lines.extend(f.readlines())
 
 text = "\n".join(dataset_lines)
-c = collections.Counter(text)
+c = collections.Counter(text.lower())
+alphabet = [char for char, _ in c.most_common()]
 
-tokenizer = Tokenizer(models.BPE())
-trainer = trainers.BpeTrainer(vocab_size=VOCAB_SIZE)
-tokenizer.normalizer = normalizers.Lowercase()
-tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
-tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)
-tokenizer.decoder = decoders.ByteLevel()
-tokenizer.train_from_iterator(dataset_lines, trainer=trainer)
+tokenizer = CharTokenizer(alphabet)
+
+# tokenizer = Tokenizer(models.BPE())
+# trainer = trainers.BpeTrainer(vocab_size=VOCAB_SIZE)
+# tokenizer.normalizer = normalizers.Lowercase()
+# tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+# tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)
+# tokenizer.decoder = decoders.ByteLevel()
+# tokenizer.train_from_iterator(dataset_lines, trainer=trainer)
 
 # Save tokenizer
 tokenizer.save("tokenizer")
@@ -198,7 +193,7 @@ for epoch in range(EPOCHS):
                     if LOG_WANDB:
                         run.log({metric_name: avg_val_loss}, commit=False)
 
-                prompt = "она смотрела на него сквозь сигаретный дым, и в её глазах"
+                prompt = "она смотрела на него сквозь сигаретный дым, и в ее глазах"
                 generated_text = generate_text(
                     model, tokenizer, prompt, device, WINDOW_SIZE, max_tokens=250
                 )
