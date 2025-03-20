@@ -1,11 +1,11 @@
 import torch
 from torch.utils.data import Dataset
-from tokenizers import Tokenizer
+from char_tokenizer import CharTokenizer
 
 
 def generate_text(
     model,
-    tokenizer: Tokenizer,
+    tokenizer: CharTokenizer,
     prompt: str,
     device: str,
     window_size: int,
@@ -14,7 +14,7 @@ def generate_text(
 ) -> str:
     """Generate text using the trained GPT model."""
     model.eval()
-    context = tokenizer.encode(prompt).ids
+    context = tokenizer.encode(prompt)
     generated = list(context)
 
     with torch.no_grad():
@@ -30,34 +30,60 @@ def generate_text(
     return tokenizer.decode(generated)
 
 
-class TextDataset(Dataset):
-    def __init__(self, path, context_window_size, tokenizer: Tokenizer):
-        # Load dataset
+class CharDataset(Dataset):
+    def __init__(self, path, context_window_size, tokenizer: CharTokenizer, device):
+        """
+        Args:
+            path (str): Path to the text file
+            context_window_size (int): Size of the context window
+            tokenizer: The tokenizer to use for encoding the text
+        """
+        self.path = path
+        self.context_window_size = context_window_size
+        self.tokenizer = tokenizer
+        self.device = device
+
+        # Store file size for length calculation
         with open(path, "r") as f:
-            lines = f.readlines()
+            self.text = f.read()
 
-        text = "\n".join(lines)
-
-        self.tokens = tokenizer.encode(text).ids
-
-        self.x = []
-        self.y = []
-        for i in range(len(self.tokens) - context_window_size):
-            self.x.append(self.tokens[i : i + context_window_size])
-            self.y.append(self.tokens[i + 1 : i + context_window_size + 1])
+        self.total_tokens = len(self.text)
 
     def __len__(self):
-        return len(self.x)
+        return self.total_tokens - self.context_window_size
 
     def __getitem__(self, idx):
-        return torch.tensor(self.x[idx]), torch.tensor(self.y[idx])
+        """
+        Get input and target sequences by tokenizing text on-the-fly.
+
+        Args:
+            idx (int): Index to start the sequence
+
+        Returns:
+            tuple: (input_sequence, target_sequence)
+        """
+        x = self.text[idx : idx + self.context_window_size]
+        y = self.text[idx + 1 : idx + self.context_window_size + 1]
+
+        x = self.tokenizer.encode(x)
+        y = self.tokenizer.encode(y)
+
+        x, y = torch.tensor(x), torch.tensor(y)
+
+        if self.device == "cuda":
+            # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
+            x = x.pin_memory().to(self.device, non_blocking=True)
+            y = y.pin_memory().to(self.device, non_blocking=True)
+        else:
+            x, y = x.to(self.device), y.to(self.device)
+        return x, y
 
 
-def get_datasets(paths, context_window_size, tokenizer: Tokenizer):
+def get_datasets(paths, context_window_size, tokenizer: CharTokenizer, device):
     datasets = []
 
     for path in paths:
-        dataset = TextDataset(path, context_window_size, tokenizer)
+        dataset = CharDataset(path, context_window_size, tokenizer, device)
         datasets.append(dataset)
 
     return datasets
