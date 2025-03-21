@@ -19,7 +19,7 @@ from transformers import get_inverse_sqrt_schedule
 from model import GPT
 from utils import generate_text, get_datasets
 
-LOG_WANDB = False
+LOG_WANDB = True
 WINDOW_SIZE = 512
 BATCH_SIZE = 128
 EPOCHS = 5
