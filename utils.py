@@ -9,7 +9,7 @@ from char_tokenizer import CharTokenizer
 
 def generate_text(
     model,
-    tokenizer: CharTokenizer,
+    tokenizer: Union[CharTokenizer, Tokenizer],
     prompt: str,
     device: str,
     window_size: int,
@@ -18,7 +18,10 @@ def generate_text(
 ) -> str:
     """Generate text using the trained GPT model."""
     model.eval()
-    context = tokenizer.encode(prompt)
+    if isinstance(tokenizer, CharTokenizer):
+        context = tokenizer.encode(prompt)
+    else:
+        context = tokenizer.encode(prompt).ids
     generated = list(context)
 
     with torch.no_grad():
