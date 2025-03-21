@@ -19,14 +19,14 @@ LOG_WANDB = True
 WINDOW_SIZE = 512
 BATCH_SIZE = 256
 EPOCHS = 5
-LR = 5e-4
+LR = 1e-3
 EMBEDDING_DIM = 128
 BLOCKS_NUM = 12
 HEADS_NUM = 4
 DROPOUT = 0.15
 MAX_GRAD_NORM = 1.0
 WARMUP_FRACTION = 0.05
-USE_BFLOAT16 = False
+USE_BFLOAT16 = True
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -99,7 +99,10 @@ ds_list = get_datasets(
 train_ds = ConcatDataset(ds_list)
 train_dataloader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-dev_dataset_paths = [ds_path.replace(".txt", "-dev.txt") for ds_path in dataset_paths]
+dev_dataset_paths = [
+    ds_path.replace(".txt", "-dev.txt")
+    for ds_path in [dataset_paths[0], dataset_paths[-1]]
+]
 
 dev_ds_list = get_datasets(dev_dataset_paths, WINDOW_SIZE, tokenizer, device)
 
@@ -113,6 +116,8 @@ for i, dev_ds in enumerate(dev_ds_list):
             dev_dataloader,
         )
     )
+
+torch.set_float32_matmul_precision("high")
 
 model = GPT(
     vocab_size=tokenizer.get_vocab_size(),

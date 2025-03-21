@@ -6,6 +6,7 @@ import torch.nn.functional as F
 class MultiHeadAttention(nn.Module):
     def __init__(self, embedding_dim, n_heads, dropout, max_len):
         super().__init__()
+        self.dropout = dropout
 
         assert embedding_dim % n_heads == 0
 
@@ -39,7 +40,7 @@ class MultiHeadAttention(nn.Module):
             q,
             k,
             v,
-            dropout_p=self.attn_dropout if self.training else 0.0,
+            dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
         y = new_v.transpose(1, 2).contiguous().view(B, T, C)
@@ -114,8 +115,13 @@ class GPT(nn.Module):
                 for _ in range(blocks_num)
             ]
         )
-        self.proj = nn.Linear(embedding_dim, vocab_size)
+        self.proj = nn.Linear(embedding_dim, vocab_size, bias=False)
         self.loss_fn = nn.CrossEntropyLoss()
+
+        self.ln_f = LayerNorm(embedding_dim, bias=False)
+
+        # weight-tying
+        self.emb.weight = self.proj.weight
 
     def forward(self, inputs, labels=None):
         _, T = inputs.shape
@@ -124,6 +130,9 @@ class GPT(nn.Module):
         blocks_output = embs + pos_embs
         for block in self.blocks:
             blocks_output = block(blocks_output)
+
+        blocks_output = self.ln_f(blocks_output)
+
         logits = self.proj(blocks_output)  # (B,T,vocab_size)
         if labels is not None:
             loss = self.loss_fn(logits.view(-1, self.vocab_size), labels.view(-1))
