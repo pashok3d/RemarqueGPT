@@ -68,7 +68,7 @@ class CharDataset(Dataset):
         x = self.tokenizer.encode(x)
         y = self.tokenizer.encode(y)
 
-        x, y = torch.tensor(x), torch.tensor(y)
+        x, y = torch.tensor(x, dtype=torch.long), torch.tensor(y, dtype=torch.long)
 
         if self.device == "cuda":
             # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)

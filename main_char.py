@@ -16,16 +16,16 @@ from model import GPT
 from utils import generate_text, get_datasets
 
 LOG_WANDB = True
-WINDOW_SIZE = 64
-BATCH_SIZE = 64
+WINDOW_SIZE = 512
+BATCH_SIZE = 256
 EPOCHS = 5
-LR = 3e-4
-EMBEDDING_DIM = 64
-BLOCKS_NUM = 3
-HEADS_NUM = 2
-DROPOUT = 0.2
+LR = 5e-4
+EMBEDDING_DIM = 128
+BLOCKS_NUM = 12
+HEADS_NUM = 4
+DROPOUT = 0.15
 MAX_GRAD_NORM = 1.0
-WARMUP_FRACTION = 0.1
+WARMUP_FRACTION = 0.05
 USE_BFLOAT16 = False
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -123,10 +123,8 @@ model = GPT(
     dropout=DROPOUT,
 )
 model.to(device)
-# model = torch.compile(model)
-optimizer = torch.optim.AdamW(
-    model.parameters(), lr=LR, betas=(0.9, 0.95), weight_decay=0.1, fused=True
-)
+model = torch.compile(model)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR, fused=True)
 
 # Scheduler with warmup and linear decay
 total_steps = EPOCHS * len(train_dataloader)

@@ -7,6 +7,8 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, embedding_dim, n_heads, dropout, max_len):
         super().__init__()
 
+        assert embedding_dim % n_heads == 0
+
         self.Q = nn.Linear(embedding_dim, embedding_dim, bias=False)
         self.K = nn.Linear(embedding_dim, embedding_dim, bias=False)
         self.V = nn.Linear(embedding_dim, embedding_dim, bias=False)
@@ -14,6 +16,9 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.kv_softmax = nn.Softmax(dim=-1)
         self.attn_dropout = nn.Dropout(dropout)
+        self.resid_dropout = nn.Dropout(dropout)
+
+        self.c_proj = nn.Linear(embedding_dim, embedding_dim, bias=False)
 
         self.register_buffer("tril", torch.tril(torch.ones(max_len, max_len)))
 
@@ -30,15 +35,45 @@ class MultiHeadAttention(nn.Module):
         v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2)
 
         # Use flash attention implementation
-        new_v = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        new_v = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            dropout_p=self.attn_dropout if self.training else 0.0,
+            is_causal=True,
+        )
+        y = new_v.transpose(1, 2).contiguous().view(B, T, C)
+        y = self.resid_dropout(self.c_proj(y))
 
-        return new_v.transpose(1, 2).contiguous().view(B, T, C)
+        return y
+
+
+class LayerNorm(nn.Module):
+    """LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False"""
+
+    def __init__(self, ndim, bias):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(ndim))
+        self.bias = nn.Parameter(torch.zeros(ndim)) if bias else None
+
+    def forward(self, input):
+        return F.layer_norm(input, self.weight.shape, self.weight, self.bias, 1e-5)
+
+
+class MLP(nn.Module):
+    def __init__(self, in_features, out_features, dropout):
+        super().__init__()
+        self.fc1 = nn.Linear(in_features, out_features * 4, bias=False)
+        self.act = nn.SiLU()
+        self.fc2 = nn.Linear(out_features * 4, out_features, bias=False)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        return self.fc2(self.dropout(self.act(self.fc1(x))))
 
 
 class GPTBlock(nn.Module):
-    def __init__(
-        self, embedding_dim: int, max_len: int, dropout: float = 0.1, n_heads=2
-    ):
+    def __init__(self, embedding_dim: int, max_len: int, dropout: float, n_heads: int):
         super().__init__()
         assert embedding_dim % n_heads == 0
 
@@ -48,25 +83,13 @@ class GPTBlock(nn.Module):
             dropout=dropout,
             max_len=max_len,
         )
-
-        self.f1 = nn.Linear(embedding_dim, embedding_dim * 4)
-        self.f_act = nn.SiLU()
-        self.f2 = nn.Linear(embedding_dim * 4, embedding_dim)
-        self.ff_dropout = nn.Dropout(dropout)
-
-        self.ln1 = nn.LayerNorm(embedding_dim)
-        self.ln2 = nn.LayerNorm(embedding_dim)
+        self.ln1 = LayerNorm(embedding_dim, bias=False)
+        self.ln2 = LayerNorm(embedding_dim, bias=False)
+        self.mlp = MLP(embedding_dim, embedding_dim, dropout)
 
     def forward(self, inputs):
-        norm_inputs = self.ln1(inputs)
-        attn_out = self.multi_head_attention(norm_inputs)
-
-        # Add residual connection
-        x = inputs + attn_out
-
-        norm_x = self.ln2(x)
-        ff_out = self.ff_dropout(self.f2(self.f_act(self.f1(norm_x))))
-        out = x + ff_out
+        x = inputs + self.multi_head_attention(self.ln1(inputs))
+        out = x + self.mlp(self.ln2(x))
         return out
 
 
