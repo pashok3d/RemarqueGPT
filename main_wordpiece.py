@@ -53,7 +53,7 @@ config = {
 if LOG_WANDB:
     import wandb
 
-    run = wandb.init(project="remark-gpt-char", config=config)
+    run = wandb.init(project="remark-gpt-wordpiece", config=config)
 
 # Prepare tokenizer
 dataset_lines = []
