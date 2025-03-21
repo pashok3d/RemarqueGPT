@@ -1,5 +1,9 @@
+from typing import Union
+
 import torch
+from tokenizers import Tokenizer
 from torch.utils.data import Dataset
+
 from char_tokenizer import CharTokenizer
 
 
@@ -79,11 +83,65 @@ class CharDataset(Dataset):
         return x, y
 
 
-def get_datasets(paths, context_window_size, tokenizer: CharTokenizer, device):
+class TextDataset(Dataset):
+    def __init__(self, path, context_window_size, tokenizer: Tokenizer, device):
+        """
+        Args:
+            path (str): Path to the text file
+            context_window_size (int): Size of the context window
+            tokenizer: The tokenizer to use for encoding the text
+        """
+        self.path = path
+        self.context_window_size = context_window_size
+        self.tokenizer = tokenizer
+        self.device = device
+
+        # Store file size for length calculation
+        with open(path, "r") as f:
+            self.text = f.read()
+
+        self.tokens = self.tokenizer.encode(self.text).ids
+        self.total_tokens = len(self.tokens)
+
+    def __len__(self):
+        return self.total_tokens - self.context_window_size
+
+    def __getitem__(self, idx):
+        """
+        Get input and target sequences by tokenizing text on-the-fly.
+
+        Args:
+            idx (int): Index to start the sequence
+
+        Returns:
+            tuple: (input_sequence, target_sequence)
+        """
+        x = self.tokens[idx : idx + self.context_window_size]
+        y = self.tokens[idx + 1 : idx + self.context_window_size + 1]
+
+        x, y = torch.tensor(x, dtype=torch.long), torch.tensor(y, dtype=torch.long)
+
+        if self.device == "cuda":
+            # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
+            x = x.pin_memory().to(self.device, non_blocking=True)
+            y = y.pin_memory().to(self.device, non_blocking=True)
+        else:
+            x, y = x.to(self.device), y.to(self.device)
+        return x, y
+
+
+def get_datasets(
+    paths, context_window_size, tokenizer: Union[CharTokenizer, Tokenizer], device
+) -> Union[list[CharDataset], list[TextDataset]]:
     datasets = []
 
-    for path in paths:
-        dataset = CharDataset(path, context_window_size, tokenizer, device)
-        datasets.append(dataset)
+    if isinstance(tokenizer, CharTokenizer):
+        for path in paths:
+            dataset = CharDataset(path, context_window_size, tokenizer, device)
+            datasets.append(dataset)
+    else:
+        for path in paths:
+            dataset = TextDataset(path, context_window_size, tokenizer, device)
+            datasets.append(dataset)
 
     return datasets

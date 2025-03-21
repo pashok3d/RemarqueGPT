@@ -3,17 +3,13 @@ Building GPT from scratch and training it on all books of Erich Maria Remarque
 """
 
 import math
-
+from tokenizers import Tokenizer
+from tokenizers.models import WordPiece
+from tokenizers.trainers import WordPieceTrainer
+from tokenizers.normalizers import Lowercase
+from tokenizers.pre_tokenizers import Whitespace
+from tokenizers.decoders import WordPiece as WordPieceDecoder
 import torch
-from tokenizers import (
-    Tokenizer,
-    decoders,
-    models,
-    normalizers,
-    pre_tokenizers,
-    processors,
-    trainers,
-)
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
@@ -22,18 +18,18 @@ from transformers import get_inverse_sqrt_schedule
 from model import GPT
 from utils import generate_text, get_datasets
 
-LOG_WANDB = True
-WINDOW_SIZE = 128
-BATCH_SIZE = 512
+LOG_WANDB = False
+WINDOW_SIZE = 512
+BATCH_SIZE = 128
 EPOCHS = 5
-LR = 3e-4
-EMBEDDING_DIM = 128
-BLOCKS_NUM = 3
+LR = 6e-4
+EMBEDDING_DIM = 256
+VOCAB_SIZE = 256
+BLOCKS_NUM = 12
 HEADS_NUM = 4
-DROPOUT = 0.2
-VOCAB_SIZE = 1024
+DROPOUT = 0.05
 MAX_GRAD_NORM = 1.0
-WARMUP_FRACTION = 0.1
+WARMUP_FRACTION = 0.05
 USE_BFLOAT16 = True
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -47,7 +43,6 @@ config = {
     "blocks_num": BLOCKS_NUM,
     "heads_num": HEADS_NUM,
     "dropout": DROPOUT,
-    "vocab_size": VOCAB_SIZE,
     "max_grad_norm": MAX_GRAD_NORM,
     "warmup_fraction": WARMUP_FRACTION,
     "device": device,
@@ -57,7 +52,7 @@ config = {
 if LOG_WANDB:
     import wandb
 
-    run = wandb.init(project="remark-gpt", config=config)
+    run = wandb.init(project="remark-gpt-char", config=config)
 
 # Prepare tokenizer
 dataset_lines = []
@@ -87,13 +82,16 @@ for path in [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths]
     with open(path, "r") as f:
         dataset_lines.extend(f.readlines())
 
-tokenizer = Tokenizer(models.BPE())
-trainer = trainers.BpeTrainer(vocab_size=VOCAB_SIZE)
-tokenizer.normalizer = normalizers.Lowercase()
-tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
-tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)
-tokenizer.decoder = decoders.ByteLevel()
+tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
+tokenizer.normalizer = Lowercase()
+tokenizer.pre_tokenizer = Whitespace()
+tokenizer.decoder = WordPieceDecoder()
+trainer = WordPieceTrainer(
+    vocab_size=VOCAB_SIZE, show_progress=True, special_tokens=["[UNK]"]
+)
 tokenizer.train_from_iterator(dataset_lines, trainer=trainer)
+
+del dataset_lines
 
 # Save tokenizer
 tokenizer.save("tokenizer")
@@ -103,14 +101,18 @@ ds_list = get_datasets(
     [ds_path.replace(".txt", "-train.txt") for ds_path in dataset_paths],
     WINDOW_SIZE,
     tokenizer,
+    device,
 )
 
 train_ds = ConcatDataset(ds_list)
 train_dataloader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-dev_dataset_paths = [ds_path.replace(".txt", "-dev.txt") for ds_path in dataset_paths]
+dev_dataset_paths = [
+    ds_path.replace(".txt", "-dev.txt")
+    for ds_path in [dataset_paths[0], dataset_paths[-1]]  # Only 2 books for validation
+]
 
-dev_ds_list = get_datasets(dev_dataset_paths, WINDOW_SIZE, tokenizer)
+dev_ds_list = get_datasets(dev_dataset_paths, WINDOW_SIZE, tokenizer, device)
 
 names_with_dev_dataloaders = []
 
@@ -123,6 +125,8 @@ for i, dev_ds in enumerate(dev_ds_list):
         )
     )
 
+torch.set_float32_matmul_precision("high")
+
 model = GPT(
     vocab_size=tokenizer.get_vocab_size(),
     max_len=WINDOW_SIZE,
@@ -134,12 +138,12 @@ model = GPT(
 model.to(device)
 model = torch.compile(model)
 optimizer = torch.optim.AdamW(
-    model.parameters(), lr=LR, betas=(0.9, 0.95), weight_decay=0.1, fused=True
+    model.parameters(), lr=LR, fused=True, betas=(0.9, 0.95), weight_decay=0.1
 )
 
 # Scheduler with warmup and linear decay
 total_steps = EPOCHS * len(train_dataloader)
-warmup_steps = int(WARMUP_FRACTION * total_steps)
+warmup_steps = min(2000, int(WARMUP_FRACTION * total_steps))
 val_interval = min(500, len(train_dataloader) * 0.25)
 
 scheduler = get_inverse_sqrt_schedule(optimizer, num_warmup_steps=warmup_steps)

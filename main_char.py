@@ -17,7 +17,7 @@ from utils import generate_text, get_datasets
 
 LOG_WANDB = True
 WINDOW_SIZE = 512
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 EPOCHS = 5
 LR = 1e-3
 EMBEDDING_DIM = 128
