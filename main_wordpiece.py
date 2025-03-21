@@ -3,13 +3,14 @@ Building GPT from scratch and training it on all books of Erich Maria Remarque
 """
 
 import math
+
+import torch
 from tokenizers import Tokenizer
+from tokenizers.decoders import WordPiece as WordPieceDecoder
 from tokenizers.models import WordPiece
-from tokenizers.trainers import WordPieceTrainer
 from tokenizers.normalizers import Lowercase
 from tokenizers.pre_tokenizers import Whitespace
-from tokenizers.decoders import WordPiece as WordPieceDecoder
-import torch
+from tokenizers.trainers import WordPieceTrainer
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
