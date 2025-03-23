@@ -22,13 +22,13 @@ from utils import generate_text, get_datasets
 LOG_WANDB = True
 WINDOW_SIZE = 512
 BATCH_SIZE = 128
-EPOCHS = 3
-LR = 1e-4
+EPOCHS = 5
+LR = 3e-4
 EMBEDDING_DIM = 256
 VOCAB_SIZE = 320
 BLOCKS_NUM = 8
 HEADS_NUM = 8
-DROPOUT = 0.15
+DROPOUT = 0.1
 MAX_GRAD_NORM = 1.0
 WARMUP_FRACTION = 0.1
 USE_BFLOAT16 = True
@@ -110,7 +110,11 @@ train_dataloader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
 dev_dataset_paths = [
     ds_path.replace(".txt", "-dev.txt")
-    for ds_path in [dataset_paths[0], dataset_paths[-1]]  # Only 2 books for validation
+    for ds_path in [
+        dataset_paths[0],
+        dataset_paths[5],
+        dataset_paths[-1],
+    ]  # Only 3 books for validation
 ]
 
 dev_ds_list = get_datasets(dev_dataset_paths, WINDOW_SIZE, tokenizer, device)
