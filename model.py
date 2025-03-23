@@ -21,8 +21,6 @@ class MultiHeadAttention(nn.Module):
 
         self.c_proj = nn.Linear(embedding_dim, embedding_dim, bias=False)
 
-        self.register_buffer("tril", torch.tril(torch.ones(max_len, max_len)))
-
     def forward(self, norm_inputs):
         B, T, C = norm_inputs.shape
 
