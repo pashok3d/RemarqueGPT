@@ -20,15 +20,15 @@ from model import GPT
 from utils import generate_text, get_datasets
 
 LOG_WANDB = True
-WINDOW_SIZE = 256
-BATCH_SIZE = 64
-EPOCHS = 5
+WINDOW_SIZE = 512
+BATCH_SIZE = 128
+EPOCHS = 3
 LR = 1e-4
-EMBEDDING_DIM = 768
-VOCAB_SIZE = 1024
-BLOCKS_NUM = 12
-HEADS_NUM = 12
-DROPOUT = 0.1
+EMBEDDING_DIM = 256
+VOCAB_SIZE = 320
+BLOCKS_NUM = 8
+HEADS_NUM = 8
+DROPOUT = 0.15
 MAX_GRAD_NORM = 1.0
 WARMUP_FRACTION = 0.1
 USE_BFLOAT16 = True
@@ -144,8 +144,8 @@ optimizer = torch.optim.AdamW(
 
 # Scheduler with warmup and linear decay
 total_steps = EPOCHS * len(train_dataloader)
-warmup_steps = min(3000, int(WARMUP_FRACTION * total_steps))
-val_interval = min(500, len(train_dataloader) * 0.25)
+warmup_steps = min(2000, int(WARMUP_FRACTION * total_steps))
+val_interval = min(1000, len(train_dataloader) * 0.25)
 
 scheduler = get_inverse_sqrt_schedule(optimizer, num_warmup_steps=warmup_steps)
 
@@ -219,18 +219,6 @@ for epoch in range(EPOCHS):
             model.train()
 
         total_steps += 1
-
-        if total_steps == warmup_steps:
-            # Double batch size
-            train_dataloader = DataLoader(
-                train_ds, batch_size=BATCH_SIZE * 2, shuffle=True
-            )
-
-        if total_steps == 2 * warmup_steps:
-            # Double batch size
-            train_dataloader = DataLoader(
-                train_ds, batch_size=BATCH_SIZE * 4, shuffle=True
-            )
 
 torch.save(model.state_dict(), "gpt.pt")
 
