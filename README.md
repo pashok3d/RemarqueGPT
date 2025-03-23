@@ -4,13 +4,24 @@ Repo contains code and notebooks used for my personal experiments on how to crea
 
 ## Dataset 
 Here is the list of the books used to train the model:
-| Title (EN)                  | Title (RU)                        | Alt Title (RU)            | Year |                                                                |
-|-----------------------------|-----------------------------------|---------------------------|------|------------------------------------------------------------------------------|
-| The Dream Room              | Приют грёз                        | Мансарда снов             | 1920 
-| Station at the Horizon      | Станция на горизонте              |                           | 1928 | 
-| All Quiet on the Western Front | На Западном фронте без перемен | На Западе без перемен     | 1929 |  
-| The Road Back               | Возвращение                       |                           | 1931 |                                                                              |
-| Three Comrades              | Три товарища                      |                           | 1936 |                                                                              |
+
+| Title (EN)                        | Title (RU)                        | Alt Title (RU)            | Year  |
+|-----------------------------------|-----------------------------------|---------------------------|-------|
+| The Dream Room                    | Приют грёз                        | Мансарда снов             | 1920  |
+| Station at the Horizon            | Станция на горизонте              |                           | 1928  |
+| All Quiet on the Western Front    | На Западном фронте без перемен    | На Западе без перемен     | 1929  |
+| The Road Back                     | Возвращение                       |                           | 1931  |
+| Three Comrades                    | Три товарища                      |                           | 1936  |
+| Flotsam                           | Люби ближнего своего              |                           | 1939  |
+| Arch of Triumph                   | Триумфальная арка                 |                           | 1945  |
+| Spark of Life                     | Искра жизни                       |                           | 1952  |
+| A Time to Love and a Time to Die  | Время жить и время умирать        |                           | 1954  |
+| The Black Obelisk                 | Черный обелиск                    |                           | 1956  |
+| Heaven Has No Favorites           | На небесах не бывает любимчиков   | Жизнь взаймы              | 1961  |
+| The Night in Lisbon               | Ночь в Лиссабоне                  |                           | 1962  |
+| Shadows in Paradise               | Тени в раю                        |                           | 1971  |
+| The Promised Land                 | Земля обетованная                 |                           | 1998 |
+| Gam                               | Гэм                              |                           | -     |
 
 ### Dataset Preprocessing  
 For simplicity sake, the content of the books was preprocessed by removing all non-cyrillic letters. Phrases in foreign languages were translated. Each book was split into train/dev/test parts with the following proportions: 80/10/10.
