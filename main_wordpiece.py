@@ -213,7 +213,7 @@ for epoch in range(EPOCHS):
                     if LOG_WANDB:
                         run.log({metric_name: avg_val_loss}, commit=False)
 
-                prompt = "она стояла у окна, ее фигура вырисовывалась четким силуэтом на фоне вечернего неба. он смотрел на неё и понимал"
+                prompt = "она стояла у окна, ее фигура вырисовывалась четким силуэтом на фоне вечернего неба. он смотрел на"
                 generated_text = generate_text(
                     model, tokenizer, prompt, device, WINDOW_SIZE, max_tokens=250
                 )
