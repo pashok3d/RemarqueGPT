@@ -1,6 +1,6 @@
 # RemarqueGPT
 
-Repo contains code and notebooks used for my personal experiments on how to create GPT model from scratch and train on a small dataset of books. The purpose of the repo is solely educational and experimental, aimed at better understanding of the transformer architecture.
+Repo contains code for my personal experiments on how to create GPT model from scratch and train on a small dataset of books. The purpose of the repo is solely educational and experimental, aimed at better understanding of the transformer architecture.
 
 ## Dataset 
 Here is the list of the books used to train the model:
