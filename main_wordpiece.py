@@ -143,7 +143,7 @@ model = GPT(
 model.to(device)
 model = torch.compile(model)
 optimizer = torch.optim.AdamW(
-    model.parameters(), lr=LR, fused=True, betas=(0.9, 0.95), weight_decay=0.1
+    model.parameters(), lr=LR, fused=True, betas=(0.9, 0.95), weight_decay=0.05
 )
 
 # Scheduler with warmup and linear decay
